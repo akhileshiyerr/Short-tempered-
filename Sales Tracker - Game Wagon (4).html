@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Tracker</title>
+  <meta name="application-name" content="Sales Tracker">
+  <meta name="apple-mobile-web-app-title" content="Sales Tracker">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#1e1b4b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    @media print {
+      header, .no-print, #pasteModal, #manualModal, #cloudModal, #toast-box {
+        display: none !important;
+      }
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      .print-full-width {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+          <i data-lucide="gamepad-2" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">Sales Tracker</h1>
+            <span class="px-2 py-0.5 text-[11px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">Game Wagon</span>
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Bangalore (HSR + BSD) • Kochi • TVM</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-2 sm:space-x-2.5">
+        <!-- Storage Status Indicator -->
+        <button onclick="openCloudModal()" id="storage-status-btn" title="Storage & Sync Status" class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">
+          <span id="storage-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="storage-status-text" class="hidden sm:inline">Saved Locally</span>
+        </button>
+
+        <button onclick="copyDailySummary()" title="Copy Formatted WhatsApp Report" class="inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition">
+          <i data-lucide="share-2" class="w-4 h-4"></i>
+          <span class="hidden md:inline">Share Daily Report</span>
+        </button>
+        <button onclick="openPasteModal()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition">
+          <i data-lucide="clipboard-paste" class="w-4 h-4"></i>
+          <span>Paste WhatsApp</span>
+        </button>
+        <button onclick="openManualModal()" class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span class="hidden lg:inline">Add Entry</span>
+        </button>
+        <button onclick="exportDataCSV()" title="Download CSV" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="download" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 print-full-width">
+
+    <!-- Date selector & View Toggles -->
+    <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div class="flex items-center flex-wrap gap-2">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Date:</span>
+        <button onclick="filterByDate('ALL')" id="date-btn-ALL" class="date-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs transition">
+          All Dates
+        </button>
+        <div id="dynamic-date-buttons" class="flex items-center flex-wrap gap-2"></div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+        <button onclick="switchView('branches')" id="tab-branches" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-indigo-700 shadow-xs transition">
+          <i data-lucide="columns-3" class="w-3.5 h-3.5 inline mr-1"></i> 4 Separate Branches
+        </button>
+        <button onclick="switchView('accounts')" id="tab-accounts" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition">
+          <i data-lucide="receipt" class="w-3.5 h-3.5 inline mr-1"></i> Accounts & Audit
+        </button>
+        <button onclick="switchView('consolidated')" id="tab-consolidated" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition">
+          <i data-lucide="table" class="w-3.5 h-3.5 inline mr-1"></i> All Orders Ledger
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+          <i data-lucide="wallet" class="w-4 h-4 text-indigo-600"></i>
+          <span>Payment Breakdown</span>
+        </h3>
+        <span class="text-[11px] text-slate-400 font-medium">Reconciled for selected period</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <!-- UPI & GPay Together -->
+        <div class="bg-indigo-50/70 border border-indigo-100 p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+              <p class="text-xs font-bold text-indigo-950">UPI & GPay</p>
+            </div>
+            <p id="stat-upi-gpay-amount" class="text-xl font-extrabold text-indigo-700 font-mono mt-1">₹0/-</p>
+            <p id="stat-upi-gpay-count" class="text-[11px] text-indigo-500 font-medium">0 orders</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+            <i data-lucide="smartphone" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- Razorpay Separate -->
+        <div class="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+              <p class="text-xs font-bold text-blue-950">Razorpay</p>
+            </div>
+            <p id="stat-razorpay-amount" class="text-xl font-extrabold text-blue-700 font-mono mt-1">₹0/-</p>
+            <p id="stat-razorpay-count" class="text-[11px] text-blue-500 font-medium">0 orders</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- Cash Separate -->
+        <div class="bg-emerald-50/70 border border-emerald-100 p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+              <p class="text-xs font-bold text-emerald-950">Cash</p>
+            </div>
+            <p id="stat-cash-amount" class="text-xl font-extrabold text-emerald-700 font-mono mt-1">₹0/-</p>
+            <p id="stat-cash-count" class="text-[11px] text-emerald-600 font-medium">0 orders</p>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <i data-lucide="banknote" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Revenue -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div class="space-y-1">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sales Income</p>
+          <h3 id="stat-total-revenue" class="text-2xl font-extrabold text-slate-900">₹0</h3>
+          <p id="stat-revenue-subtitle" class="text-xs text-emerald-600 font-medium flex items-center">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 mr-1"></i> Combined Across Hubs
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+          <i data-lucide="indian-rupee" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Bangalore Combined Region (HSR + BSD) -->
+      <div class="bg-gradient-to-br from-indigo-900 to-slate-900 p-5 rounded-2xl text-white shadow-xs flex items-center justify-between">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-1.5">
+            <p class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Bangalore (HSR + BSD)</p>
+            <span class="px-1.5 py-0.5 text-[10px] bg-indigo-500/40 text-indigo-100 rounded font-semibold">Combined</span>
+          </div>
+          <h3 id="stat-blr-combined" class="text-2xl font-extrabold text-white">₹0</h3>
+          <p id="stat-blr-split" class="text-xs text-indigo-300 font-mono">HSR: ₹0 | BSD: ₹0</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-white/10 text-indigo-300 flex items-center justify-center">
+          <i data-lucide="building" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Total Rental Bookings -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div class="space-y-1">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Bookings</p>
+          <h3 id="stat-total-orders" class="text-2xl font-extrabold text-slate-900">0</h3>
+          <p id="stat-aov" class="text-xs text-slate-500 font-medium">Avg ticket: ₹0</p>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Acquisition Channels Breakdown -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Lead Acquisition Channels</p>
+          <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="target" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div id="stat-acquisition-list" class="grid grid-cols-2 gap-2 text-xs"></div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
+          <i data-lucide="layout-grid" class="w-4 h-4 text-indigo-600"></i>
+          <span>Trackers for all 4 Branches</span>
+        </h2>
+        <span id="tracker-date-hint" class="text-xs text-slate-400 font-medium">Showing All Dates</span>
+      </div>
+      <div id="branch-summary-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+    </div>
+
+    <section id="view-branches" class="space-y-6">
+      <!-- Bangalore Section with 2 child branch tables: HSR and BSD -->
+      <div class="bg-gradient-to-r from-indigo-50/50 via-white to-slate-50 p-4 sm:p-5 rounded-2xl border border-indigo-100 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-indigo-100 gap-2">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+            <h3 class="font-bold text-slate-900 text-base">Bangalore Region (BLR - HSR + BSD)</h3>
+            <span class="text-xs bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">2 Hubs</span>
+          </div>
+          <div class="flex items-center space-x-4 text-xs font-semibold">
+            <span class="text-slate-500">BLR Total: <strong id="blr-combined-table-sum" class="text-indigo-700 font-mono text-sm">₹0/-</strong></span>
+            <span class="text-slate-400">|</span>
+            <span class="text-slate-500">Orders: <strong id="blr-combined-table-count" class="text-slate-800 font-mono">0</strong></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <!-- Branch 1: BLR (HSR) Table -->
+          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                <span class="font-bold text-slate-900 text-xs sm:text-sm">Branch 1: BLR (HSR)</span>
+              </div>
+              <span id="hsr-total-badge" class="font-mono font-bold text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">₹0/-</span>
+            </div>
+            <div class="overflow-x-auto max-h-80 custom-scrollbar">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-[11px] sticky top-0 z-10">
+                  <tr>
+                    <th class="py-2.5 px-3">Date</th>
+                    <th class="py-2.5 px-3">Customer & Package</th>
+                    <th class="py-2.5 px-3">Mode</th>
+                    <th class="py-2.5 px-3 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="branch-table-blr-hsr" class="divide-y divide-slate-100 text-slate-700"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Branch 2: BSD Table -->
+          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+            <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                <span class="font-bold text-slate-900 text-xs sm:text-sm">Branch 2: BSD (Bangalore)</span>
+              </div>
+              <span id="bsd-total-badge" class="font-mono font-bold text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">₹0/-</span>
+            </div>
+            <div class="overflow-x-auto max-h-80 custom-scrollbar">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-[11px] sticky top-0 z-10">
+                  <tr>
+                    <th class="py-2.5 px-3">Date</th>
+                    <th class="py-2.5 px-3">Customer & Package</th>
+                    <th class="py-2.5 px-3">Mode</th>
+                    <th class="py-2.5 px-3 text-right">Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="branch-table-blr-bsd" class="divide-y divide-slate-100 text-slate-700"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kerala Region Section: TVM & Kochi -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Branch 3: TVM Table -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span class="font-bold text-slate-900 text-xs sm:text-sm">Branch 3: TVM (Trivandrum)</span>
+            </div>
+            <span id="tvm-total-badge" class="font-mono font-bold text-xs bg-rose-100 text-rose-800 px-2 py-0.5 rounded">₹0/-</span>
+          </div>
+          <div class="overflow-x-auto max-h-80 custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-[11px] sticky top-0 z-10">
+                <tr>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Customer & Package</th>
+                  <th class="py-2.5 px-3">Mode</th>
+                  <th class="py-2.5 px-3 text-right">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="branch-table-tvm" class="divide-y divide-slate-100 text-slate-700"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Branch 4: Kochi Table -->
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="font-bold text-slate-900 text-xs sm:text-sm">Branch 4: Kochi</span>
+            </div>
+            <span id="kochi-total-badge" class="font-mono font-bold text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">₹0/-</span>
+          </div>
+          <div class="overflow-x-auto max-h-80 custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-[11px] sticky top-0 z-10">
+                <tr>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Customer & Package</th>
+                  <th class="py-2.5 px-3">Mode</th>
+                  <th class="py-2.5 px-3 text-right">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="branch-table-kochi" class="divide-y divide-slate-100 text-slate-700"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-accounts" class="hidden space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50/70">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Game Wagon - Daily Accounts & Reconciliation Sheet</h3>
+            <p class="text-xs text-slate-500">Day-wise branch closure with segregated UPI/GPay, Razorpay, and Cash channels</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="window.print()" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs">
+              <i data-lucide="printer" class="w-3.5 h-3.5 inline mr-1"></i> Print Audit PDF
+            </button>
+            <button onclick="copyDailySummary()" class="px-3 py-1.5 bg-emerald-600 rounded-lg text-xs font-semibold text-white hover:bg-emerald-700 shadow-xs">
+              <i data-lucide="copy" class="w-3.5 h-3.5 inline mr-1"></i> Copy Report Text
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+              <tr>
+                <th class="py-3 px-3">Date</th>
+                <th class="py-3 px-3">Branch</th>
+                <th class="py-3 px-3 text-center">Bookings</th>
+                <th class="py-3 px-3 text-right">UPI & GPay (₹)</th>
+                <th class="py-3 px-3 text-right">Razorpay (₹)</th>
+                <th class="py-3 px-3 text-right">Cash (₹)</th>
+                <th class="py-3 px-3 text-right">Day's Total (₹)</th>
+                <th class="py-3 px-3 text-right">Cumulative (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-audit-tbody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+            <tfoot class="bg-slate-100/90 font-bold text-slate-900 border-t-2 border-slate-300">
+              <tr>
+                <td class="py-3 px-3" colspan="2">AUDIT PERIOD TOTAL</td>
+                <td id="accounts-total-orders-cell" class="py-3 px-3 font-mono text-center">0 Bookings</td>
+                <td id="accounts-total-upigpay-cell" class="py-3 px-3 text-right font-mono text-indigo-700">₹0/-</td>
+                <td id="accounts-total-razorpay-cell" class="py-3 px-3 text-right font-mono text-blue-700">₹0/-</td>
+                <td id="accounts-total-cash-cell" class="py-3 px-3 text-right font-mono text-emerald-700">₹0/-</td>
+                <td id="accounts-total-sum-cell" class="py-3 px-3 text-right font-mono font-bold text-slate-900">₹0/-</td>
+                <td id="accounts-total-cumulative-cell" class="py-3 px-3 text-right font-mono font-bold text-slate-900">₹0/-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-consolidated" class="hidden space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2">
+            <h3 class="font-bold text-slate-800 text-base">Complete Transactions Ledger</h3>
+            <span id="transaction-count-badge" class="px-2.5 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-full">0 Orders</span>
+          </div>
+          <div class="relative w-full sm:w-72">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <input type="text" id="table-search-input" oninput="renderConsolidatedTable()" placeholder="Search customer, package, branch..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                <th class="py-3 px-4">Date</th>
+                <th class="py-3 px-4">Branch</th>
+                <th class="py-3 px-4">Customer Name</th>
+                <th class="py-3 px-4">Package</th>
+                <th class="py-3 px-4">Lead Source</th>
+                <th class="py-3 px-4">Payment</th>
+                <th class="py-3 px-4 text-right">Amount (₹)</th>
+                <th class="py-3 px-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="transaction-tbody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
+      <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-slate-800 text-sm">Branch Sales Comparison</h3>
+            <p class="text-xs text-slate-400">Daily collections for HSR, BSD, TVM, and Kochi</p>
+          </div>
+          <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Stacked View</span>
+        </div>
+        <div class="h-64 sm:h-72">
+          <canvas id="dailyRevenueChart"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-slate-800 text-sm">Customer Lead Source Share</h3>
+              <p class="text-xs text-slate-400">Meta Ads vs Existing vs Direct vs Website</p>
+            </div>
+            <i data-lucide="pie-chart" class="w-4 h-4 text-slate-400"></i>
+          </div>
+          <div class="h-52 relative flex items-center justify-center">
+            <canvas id="channelShareChart"></canvas>
+          </div>
+        </div>
+        <div id="lead-source-legend" class="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs"></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="pasteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Paste WhatsApp Daily Report</h3>
+            <p class="text-xs text-slate-500">Paste your branch WhatsApp updates directly</p>
+          </div>
+        </div>
+        <button onclick="closePasteModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-3 flex-1 overflow-y-auto pr-1">
+        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <label class="text-xs font-bold text-slate-700">Target Date:</label>
+          <input type="date" id="paste-target-date" onchange="liveParseWhatsApp()" class="text-xs p-1.5 bg-white border border-slate-300 rounded-lg font-mono focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">WhatsApp Text</label>
+          <textarea id="raw-whatsapp-input" rows="8" oninput="liveParseWhatsApp()" placeholder="Paste your raw WhatsApp branch updates here..." class="w-full text-xs p-3 font-mono bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] text-slate-500">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 inline text-indigo-500 mr-1"></i>
+            Automatically detects BLR (HSR), BSD, TVM, and Kochi.
+          </p>
+          <button type="button" onclick="previewParsedData()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 transition">
+            Preview Parse
+          </button>
+        </div>
+
+        <!-- Live Preview Area -->
+        <div id="parse-preview-container" class="hidden mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <p id="preview-count" class="text-xs font-bold text-slate-700"></p>
+            <span id="preview-total-sum" class="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">₹0/-</span>
+          </div>
+          <div id="preview-list" class="max-h-40 overflow-y-auto space-y-1.5 text-xs font-mono"></div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+        <button onclick="closePasteModal()" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+        <button onclick="commitParsedData()" class="px-5 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition">
+          Confirm & Add to Tracker
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manualModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-slate-900 text-base" id="manual-modal-title">Add New Order</h3>
+        <button onclick="closeManualModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="manual-order-form" onsubmit="handleManualSubmit(event)" class="mt-4 space-y-3">
+        <input type="hidden" id="manual-edit-id" value="">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Date</label>
+            <input type="date" id="manual-date" required class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Branch</label>
+            <select id="manual-branch" required class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+              <option value="BLR (HSR)">BLR (HSR)</option>
+              <option value="BSD">BSD</option>
+              <option value="TVM">TVM</option>
+              <option value="Kochi">Kochi</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Customer Name</label>
+          <input type="text" id="manual-customer" required placeholder="e.g. Ramesh Kumar" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Package / Details</label>
+            <input type="text" id="manual-package" required placeholder="e.g. PS5 Daily (2+1)" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Amount (₹)</label>
+            <input type="number" id="manual-amount" required min="0" placeholder="e.g. 2500" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Source / Acquisition</label>
+            <select id="manual-source" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+              <option value="Meta ad">Meta Ad / Leads</option>
+              <option value="Existing customer">Existing Customer</option>
+              <option value="Direct enquiry">Direct Enquiry</option>
+              <option value="Website">Website</option>
+              <option value="Extension">Extension</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Payment Method</label>
+            <select id="manual-payment" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-indigo-500">
+              <option value="UPI">UPI</option>
+              <option value="GPay">GPay</option>
+              <option value="RazorPay">Razorpay</option>
+              <option value="Cash">Cash</option>
+              <option value="UPI / Cash">UPI / Cash</option>
+              <option value="Website">Website</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeManualModal()" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">
+            Save Record
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast Box -->
+  <div id="toast-box" class="fixed bottom-5 right-5 z-50 pointer-events-none transition-all duration-300 opacity-0 transform translate-y-3">
+    <div id="toast-content" class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-xs font-medium">
+      <i id="toast-icon" data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+      <span id="toast-message">Notification message</span>
+    </div>
+  </div>
+
+  <!-- Storage and Diagnostics Modal -->
+  <div id="cloudModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Storage & Sync Status</h3>
+            <p class="text-[11px] text-slate-500">Persistent storage across sessions</p>
+          </div>
+        </div>
+        <button onclick="closeCloudModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs text-slate-600">
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <span>Active Storage Mode:</span>
+          <span id="modal-conn-status" class="font-bold text-emerald-600">Persistent Device DB (Active)</span>
+        </div>
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+          <span>Total Transactions:</span>
+          <span id="modal-total-records" class="font-mono text-xs font-bold text-indigo-600">41 Records</span>
+        </div>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+          Your data is permanently preserved in your device storage. Whenever you add new sales on Netlify or mobile, changes remain intact even after closing or refreshing the tab.
+        </p>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
+        <button onclick="resetToBaseline()" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-semibold">
+          Reset / Sync Oct 1-3
+        </button>
+        <button onclick="closeCloudModal()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const initialSeedData = [
+      // OCTOBER 01 - BLR (HSR)
+      { id: 'gw-101-1', date: '2026-10-01', branch: 'BLR (HSR)', customer: 'Sachin K p', package: 'PS5 Daily package', amount: 2100, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-101-2', date: '2026-10-01', branch: 'BLR (HSR)', customer: 'Parvez B', package: 'PS5 Daily package 2days', amount: 2298, payment: 'UPI / Cash', source: 'Meta ad' },
+      { id: 'gw-101-3', date: '2026-10-01', branch: 'BLR (HSR)', customer: 'Narendran Nagarajan', package: 'PS5 Weekly package', amount: 4499, payment: 'UPI', source: 'Extension' },
+      { id: 'gw-101-4', date: '2026-10-01', branch: 'BLR (HSR)', customer: 'Ankit Kaushik', package: 'PS5 Daily package', amount: 2103, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-101-5', date: '2026-10-01', branch: 'BLR (HSR)', customer: 'Pilli Yuvaraj', package: 'PS5 Daily package 1day', amount: 838, payment: 'UPI', source: 'Meta ad' },
+
+      // OCTOBER 01 - BSD
+      { id: 'gw-101-6', date: '2026-10-01', branch: 'BSD', customer: 'Vishnu Prasad', package: 'PS5 Daily package', amount: 1248, payment: 'UPI', source: 'Meta ad' },
+      { id: 'gw-101-7', date: '2026-10-01', branch: 'BSD', customer: 'Nikhil Jaiswal', package: 'Delivery charges', amount: 449, payment: 'UPI', source: 'Direct enquiry' },
+      { id: 'gw-101-8', date: '2026-10-01', branch: 'BSD', customer: 'Akash Kumar swain', package: 'PS5 Daily package 1day', amount: 1639, payment: 'Website', source: 'Website' },
+
+      // OCTOBER 01 - Kochi
+      { id: 'gw-101-9', date: '2026-10-01', branch: 'Kochi', customer: 'Neethu Unnikrishnan', package: 'PS5 Daily Package (2+1 days)', amount: 2436, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-101-10', date: '2026-10-01', branch: 'Kochi', customer: 'Zacharia Varghese', package: 'PS4 Data Media Daily Package', amount: 177, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-101-11', date: '2026-10-01', branch: 'Kochi', customer: 'Kunjumon Charuparambil', package: 'PS5 Weekly Package', amount: 4054, payment: 'UPI', source: 'Direct enquiry' },
+      { id: 'gw-101-12', date: '2026-10-01', branch: 'Kochi', customer: 'Aravind Mohan', package: 'PS5 Daily Package (2+1 Offer)', amount: 3061, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-101-13', date: '2026-10-01', branch: 'Kochi', customer: 'Andaluri Bharathi', package: 'PS5 Daily Package (2+1 days)', amount: 3710, payment: 'UPI', source: 'Meta ad' },
+
+      // OCTOBER 02 - BLR (HSR)
+      { id: 'gw-102-1', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'Ankit Ghosh', package: 'PS5 Daily package 3days', amount: 1513, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-102-2', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'M s Karthik', package: 'PS5 Daily package 3days', amount: 3399, payment: 'UPI', source: 'Direct enquiry' },
+      { id: 'gw-102-3', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'Vinay Krishnan', package: 'PS5 Daily package 1day', amount: 1599, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-102-4', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'Ritto c Peter', package: 'PS5 Daily package 2days', amount: 1913, payment: 'UPI', source: 'Meta ad' },
+      { id: 'gw-102-5', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'Shivam Mahajan', package: 'PS5 Daily package 1day', amount: 788, payment: 'UPI', source: 'Meta ad' },
+      { id: 'gw-102-6', date: '2026-10-02', branch: 'BLR (HSR)', customer: 'Farhan Abdul Hameed', package: 'PS5 Daily package 2days', amount: 2599, payment: 'UPI', source: 'Meta ad' },
+
+      // OCTOBER 02 - BSD
+      { id: 'gw-102-7', date: '2026-10-02', branch: 'BSD', customer: 'Shreyas Suresh', package: 'PS5 Daily package 3days', amount: 2599, payment: 'UPI', source: 'Meta ad' },
+
+      // OCTOBER 02 - TVM
+      { id: 'gw-102-8', date: '2026-10-02', branch: 'TVM', customer: 'Anand', package: 'PS4 daily package (1 day)', amount: 600, payment: 'GPay', source: 'Meta ad' },
+      { id: 'gw-102-9', date: '2026-10-02', branch: 'TVM', customer: 'Alfred', package: 'PS4 daily package (1 day)', amount: 750, payment: 'GPay', source: 'Existing customer' },
+      { id: 'gw-102-10', date: '2026-10-02', branch: 'TVM', customer: 'Chacko Roy', package: 'PS5 daily package (2+1 day)', amount: 2650, payment: 'GPay', source: 'Meta ad' },
+      { id: 'gw-102-11', date: '2026-10-02', branch: 'TVM', customer: 'Vishnu', package: 'PS5 daily package (2+1 day)', amount: 2000, payment: 'GPay', source: 'Existing customer' },
+
+      // OCTOBER 02 - Kochi
+      { id: 'gw-102-12', date: '2026-10-02', branch: 'Kochi', customer: 'Nihil Jimmy', package: 'PS5 Daily Package, (2+1 offer)', amount: 2766, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-102-13', date: '2026-10-02', branch: 'Kochi', customer: 'Rakesh Rajendran', package: 'PS5 Daily Package', amount: 1235, payment: 'UPI', source: 'Meta ad' },
+      { id: 'gw-102-14', date: '2026-10-02', branch: 'Kochi', customer: 'Nandu S Raj', package: 'PS4 Monthly Package', amount: 4931, payment: 'RazorPay', source: 'Existing customer' },
+      { id: 'gw-102-15', date: '2026-10-02', branch: 'Kochi', customer: 'Rajath Rajeev', package: 'PS5 Controller Daily Package', amount: 295, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-102-16', date: '2026-10-02', branch: 'Kochi', customer: 'Elvis Joseph Rodriguez', package: 'PS4 Monthly Daily Package', amount: 884, payment: 'UPI', source: 'Existing customer' },
+
+      // OCTOBER 03 - BLR (HSR)
+      { id: 'gw-103-1', date: '2026-10-03', branch: 'BLR (HSR)', customer: 'Himanshu Goyal', package: 'PS5 Daily package 1 day', amount: 1691, payment: 'UPI', source: 'Direct enquiry' },
+      { id: 'gw-103-2', date: '2026-10-03', branch: 'BLR (HSR)', customer: 'Aakash Chandrashekar', package: 'PS5 Daily package 2 days', amount: 1513, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-103-3', date: '2026-10-03', branch: 'BLR (HSR)', customer: 'Naveen Raj', package: 'PS5 Daily package 1 day', amount: 1599, payment: 'UPI', source: 'Meta ad' },
+      { id: 'gw-103-4', date: '2026-10-03', branch: 'BLR (HSR)', customer: 'Mohammed Kashif', package: 'PS5 Daily package 2days', amount: 2299, payment: 'UPI', source: 'Meta ad' },
+
+      // OCTOBER 03 - BSD
+      { id: 'gw-103-5', date: '2026-10-03', branch: 'BSD', customer: 'Jeffery s', package: 'PS5 Daily package 2 days', amount: 2520, payment: 'RazorPay', source: 'Website' },
+      { id: 'gw-103-6', date: '2026-10-03', branch: 'BSD', customer: 'Arjun Shivsankar', package: 'PS5 Daily package 2 days', amount: 1598, payment: 'UPI', source: 'Existing customer' },
+
+      // OCTOBER 03 - Kochi
+      { id: 'gw-103-7', date: '2026-10-03', branch: 'Kochi', customer: 'Zacharia Varghese', package: 'PS4 Data Media Daily Package (2 Days) (EXT)', amount: 354, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-103-8', date: '2026-10-03', branch: 'Kochi', customer: 'Nandu S Raj', package: 'PS5 Monthly Package (PS4 to PS5 Upgrade)', amount: 4197, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-103-9', date: '2026-10-03', branch: 'Kochi', customer: 'Vishal K G', package: 'PS4 Daily Package, (2+1 Days)', amount: 1532, payment: 'UPI', source: 'Direct enquiry' },
+      { id: 'gw-103-10', date: '2026-10-03', branch: 'Kochi', customer: 'Elvis Joseph', package: 'PS4 Daily Package, (2+1 Day), (EXT)', amount: 589, payment: 'UPI', source: 'Existing customer' },
+      { id: 'gw-103-11', date: '2026-10-03', branch: 'Kochi', customer: 'Aravid Mohan', package: 'PS5 Daily Package, (2+1 Day)', amount: 2235, payment: 'Cash', source: 'Meta ad' },
+      { id: 'gw-103-12', date: '2026-10-03', branch: 'Kochi', customer: 'Arun Columbus', package: 'PS5 Daily Package', amount: 1294, payment: 'UPI', source: 'Existing customer' }
+    ];
+
+    let salesData = [...initialSeedData];
+    let activeDateFilter = 'ALL';
+    let currentActiveView = 'branches';
+    let tempParsedOrders = [];
+    let dailyChartInstance = null;
+    let channelChartInstance = null;
+
+    const DB_NAME = 'GameWagonSalesDB_v3';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'sales_orders';
+
+    function openIndexedDB() {
+      return new Promise((resolve, reject) => {
+        const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function loadFromIndexedDB() {
+      try {
+        const idb = await openIndexedDB();
+        return new Promise((resolve) => {
+          const tx = idb.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) {
+        return [];
+      }
+    }
+
+    async function saveItemsToIndexedDB(items) {
+      try {
+        const idb = await openIndexedDB();
+        const tx = idb.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        items.forEach(item => store.put(item));
+        return new Promise((resolve) => {
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function deleteItemFromIndexedDB(id) {
+      try {
+        const idb = await openIndexedDB();
+        const tx = idb.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        return new Promise((resolve) => {
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function clearIndexedDB() {
+      try {
+        const idb = await openIndexedDB();
+        const tx = idb.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.clear();
+      } catch (e) {}
+    }
+
+    async function initStorage() {
+      const persisted = await loadFromIndexedDB();
+      if (persisted && persisted.length > 0) {
+        // Merge missing seed items so Oct 1, 2, and 3 are always present
+        const persistedIds = new Set(persisted.map(item => item.id));
+        const missingSeeds = initialSeedData.filter(seed => !persistedIds.has(seed.id));
+        if (missingSeeds.length > 0) {
+          await saveItemsToIndexedDB(missingSeeds);
+          salesData = [...persisted, ...missingSeeds];
+        } else {
+          salesData = persisted;
+        }
+      } else {
+        await saveItemsToIndexedDB(initialSeedData);
+        salesData = [...initialSeedData];
+      }
+
+      document.getElementById('storage-status-text').innerText = 'Saved Locally';
+      document.getElementById('modal-conn-status').innerText = 'Persistent Device DB (Active)';
+      document.getElementById('modal-total-records').innerText = salesData.length + ' Records';
+
+      updateDateButtons();
+      refreshDashboard();
+    }
+
+    function parseWhatsAppSales(text, fallbackDate = '2026-10-03') {
+      if (!text || !text.trim()) return [];
+
+      // Clean invisible direction and zero-width unicode characters
+      const cleanText = text.replace(/[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g, '');
+      const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+
+      let detectedDate = fallbackDate;
+      let currentBranch = 'BLR (HSR)';
+      const parsed = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 1. Date Detection
+        const bracketMatch = line.match(/(?:\[|\b)0?(\d{1,2})[\/\.-]0?(\d{1,2})(?:[\/\.-](\d{2,4}))?/);
+        const monthMatch = line.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s*0?(\d{1,2})/i);
+
+        if (monthMatch) {
+          const d = monthMatch[1].padStart(2, '0');
+          detectedDate = `2026-10-${d}`;
+        } else if (bracketMatch) {
+          const d = bracketMatch[1].padStart(2, '0');
+          const m = bracketMatch[2].padStart(2, '0');
+          detectedDate = `2026-${m}-${d}`;
+        }
+
+        // 2. Branch Detection
+        const lineUpper = line.toUpperCase();
+        if (lineUpper.includes('BLR (HSR)') || lineUpper.includes('HSR')) {
+          currentBranch = 'BLR (HSR)';
+        } else if (lineUpper.includes('BSD')) {
+          currentBranch = 'BSD';
+        } else if (lineUpper.includes('TVM') || lineUpper.includes('TRIVANDRUM')) {
+          currentBranch = 'TVM';
+        } else if (lineUpper.includes('KOCHI') || lineUpper.includes('COCHIN')) {
+          currentBranch = 'Kochi';
+        }
+
+        // Skip non-order summary / header lines
+        if (/^(?:total|today'?s\s*income|income|no\s*orders|all\s*consoles)/i.test(line)) {
+          continue;
+        }
+
+        // 3. Customer Item Detection (e.g. "1 Sachin...", "1. Anand...", "2) Parvez...")
+        const orderMatch = line.match(/^\s*(?:\d+[\.\)\s\:\-\–\—]+)(.+)$/);
+        if (orderMatch) {
+          let itemText = orderMatch[1].trim();
+
+          // Amount Extraction: look for prices with /-, ₹, = while avoiding '1 day' or '2days'
+          let amount = 0;
+          const amtSlashMatch = itemText.match(/(?:₹|rs\.?|:-|=|–|-|\b)\s*([\d,]{3,7})\s*(?:\/-|\/)/i);
+          if (amtSlashMatch) {
+            const parsedVal = parseInt(amtSlashMatch[1].replace(/,/g, ''), 10);
+            if (!isNaN(parsedVal) && parsedVal >= 100) amount = parsedVal;
+          }
+
+          if (amount === 0) {
+            const generalAmtMatch = itemText.match(/(?:₹|rs\.?|=)\s*([\d,]{3,7})/i);
+            if (generalAmtMatch) {
+              const parsedVal = parseInt(generalAmtMatch[1].replace(/,/g, ''), 10);
+              if (!isNaN(parsedVal) && parsedVal >= 100) amount = parsedVal;
+            }
+          }
+
+          if (amount === 0) {
+            const endAmtMatch = itemText.match(/([\d,]{3,7})\s*(?:\/-|\/)?\s*(?:upi|gpay|cash|razorpay|\(|$)/i);
+            if (endAmtMatch) {
+              const parsedVal = parseInt(endAmtMatch[1].replace(/,/g, ''), 10);
+              if (!isNaN(parsedVal) && parsedVal >= 100) amount = parsedVal;
+            }
+          }
+
+          // Payment mode detection
+          let payment = 'UPI';
+          if (/razorpay/i.test(itemText)) payment = 'RazorPay';
+          else if (/gpay/i.test(itemText)) payment = 'GPay';
+          else if (/cash/i.test(itemText) && !/upi/i.test(itemText)) payment = 'Cash';
+          else if (/upi\s*[\/\+]\s*cash/i.test(itemText)) payment = 'UPI / Cash';
+          else if (/website/i.test(itemText) && !/razorpay/i.test(itemText)) payment = 'Website';
+
+          // Lead channel detection
+          let source = 'Direct enquiry';
+          if (/exist/i.test(itemText)) source = 'Existing customer';
+          else if (/meta|lead/i.test(itemText)) source = 'Meta ad';
+          else if (/web/i.test(itemText)) source = 'Website';
+          else if (/ext/i.test(itemText)) source = 'Extension';
+
+          // Customer and Package extraction
+          // Normalize WhatsApp separators into a clean pipe delimiter
+          const normalized = itemText
+            .replace(/\)\s*[-–—:]\s*/g, ') | ')
+            .replace(/:-+/g, ' | ')
+            .replace(/\s+[-–—]\s+/g, ' | ')
+            .replace(/\s*=\s*/g, ' | ');
+
+          const segments = normalized.split('|').map(s => s.trim()).filter(Boolean);
+          
+          let customer = '';
+          let pkg = '';
+
+          if (segments.length >= 2) {
+            customer = segments[0]
+              .replace(/\(.*?\)/g, '')
+              .replace(/[\*\_]/g, '')
+              .replace(/^[\d\.\)\s:-]+/, '')
+              .trim();
+            pkg = segments[1]
+              .replace(/₹.*$/, '')
+              .replace(/[\d,]+\s*(?:\/-|\/).*$/, '')
+              .replace(/[\*\_]/g, '')
+              .trim();
+          } else {
+            // Fallback: extract name before parentheses or common package indicators
+            const nameMatch = itemText.match(/^([A-Za-z\s\.\'\`]+?)(?:\s*\(|\s*[:-=]|\s+PS|\s+Xbox|\s+Daily)/i);
+            if (nameMatch) {
+              customer = nameMatch[1].trim();
+            }
+            pkg = itemText.replace(customer, '').replace(/₹.*$/, '').replace(/[\d,]+\s*(?:\/-|\/).*$/, '').trim();
+          }
+
+          // Clean customer name from leftover punctuation
+          customer = customer.replace(/^[\s\.\:\-\–]+|[\s\.\:\-\–]+$/g, '').trim();
+          if (!customer) customer = 'Customer';
+          if (!pkg) pkg = 'Rental Package';
+
+          if (amount > 0) {
+            parsed.push({
+              id: 'gw-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+              date: detectedDate,
+              branch: currentBranch,
+              customer: customer,
+              package: pkg,
+              amount,
+              payment,
+              source
+            });
+          }
+        }
+      }
+      return parsed;
+    }
+
+    function switchView(viewName) {
+      currentActiveView = viewName;
+      ['branches', 'accounts', 'consolidated'].forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const tab = document.getElementById(`tab-${v}`);
+        if (el) el.classList.toggle('hidden', v !== viewName);
+        if (tab) {
+          if (v === viewName) {
+            tab.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-indigo-700 shadow-xs transition';
+          } else {
+            tab.className = 'px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition';
+          }
+        }
+      });
+      if (viewName === 'consolidated') renderConsolidatedTable();
+      if (viewName === 'accounts') renderAccountsAuditTable();
+    }
+
+    function filterByDate(dateStr) {
+      activeDateFilter = dateStr;
+      document.querySelectorAll('.date-filter-btn').forEach(btn => {
+        btn.className = 'date-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition';
+      });
+      const activeBtn = document.getElementById(`date-btn-${dateStr}`);
+      if (activeBtn) {
+        activeBtn.className = 'date-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs transition';
+      }
+      refreshDashboard();
+    }
+
+    function updateDateButtons() {
+      const container = document.getElementById('dynamic-date-buttons');
+      if (!container) return;
+      container.innerHTML = '';
+      const dates = [...new Set(salesData.map(d => d.date))].sort();
+
+      dates.forEach(d => {
+        const count = salesData.filter(i => i.date === d).length;
+        const label = `${formatDisplayDate(d)} (${count})`;
+        const btn = document.createElement('button');
+        btn.id = `date-btn-${d}`;
+        btn.className = `date-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium transition ${activeDateFilter === d ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`;
+        btn.innerText = label;
+        btn.onclick = () => filterByDate(d);
+        container.appendChild(btn);
+      });
+
+      const allBtn = document.getElementById('date-btn-ALL');
+      if (allBtn) {
+        allBtn.innerText = `All Dates (${salesData.length})`;
+      }
+    }
+
+    function formatDisplayDate(dateStr) {
+      if (!dateStr || !dateStr.includes('-')) return dateStr;
+      const parts = dateStr.split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const mIdx = parseInt(parts[1], 10) - 1;
+      return `${months[mIdx]} ${parts[2]}`;
+    }
+
+    function refreshDashboard() {
+      const filtered = activeDateFilter === 'ALL' ? salesData : salesData.filter(d => d.date === activeDateFilter);
+
+      const totalRevenue = filtered.reduce((acc, c) => acc + c.amount, 0);
+      const totalOrders = filtered.length;
+      const aov = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+
+      document.getElementById('stat-total-revenue').innerText = `₹${totalRevenue.toLocaleString('en-IN')}`;
+      document.getElementById('stat-total-orders').innerText = totalOrders;
+      document.getElementById('stat-aov').innerText = `Avg ticket: ₹${aov.toLocaleString('en-IN')}`;
+
+      // Bangalore Region: HSR + BSD Combined
+      const hsrOrders = filtered.filter(d => d.branch === 'BLR (HSR)');
+      const bsdOrders = filtered.filter(d => d.branch === 'BSD');
+      const hsrSum = hsrOrders.reduce((acc, c) => acc + c.amount, 0);
+      const bsdSum = bsdOrders.reduce((acc, c) => acc + c.amount, 0);
+      const blrCombinedSum = hsrSum + bsdSum;
+
+      document.getElementById('stat-blr-combined').innerText = `₹${blrCombinedSum.toLocaleString('en-IN')}`;
+      document.getElementById('stat-blr-split').innerText = `HSR: ₹${hsrSum.toLocaleString('en-IN')} | BSD: ₹${bsdSum.toLocaleString('en-IN')}`;
+      document.getElementById('blr-combined-table-sum').innerText = `₹${blrCombinedSum.toLocaleString('en-IN')}/-`;
+      document.getElementById('blr-combined-table-count').innerText = `${hsrOrders.length + bsdOrders.length}`;
+
+      // Payment Breakdown: UPI & GPay together, Razorpay separate, Cash separate
+      let upiGpaySum = 0, upiGpayCount = 0;
+      let razorpaySum = 0, razorpayCount = 0;
+      let cashSum = 0, cashCount = 0;
+
+      filtered.forEach(o => {
+        const p = (o.payment || '').toLowerCase();
+        if (p.includes('razorpay')) {
+          razorpaySum += o.amount;
+          razorpayCount++;
+        } else if (p.includes('cash') && !p.includes('upi')) {
+          cashSum += o.amount;
+          cashCount++;
+        } else {
+          upiGpaySum += o.amount;
+          upiGpayCount++;
+        }
+      });
+
+      document.getElementById('stat-upi-gpay-amount').innerText = `₹${upiGpaySum.toLocaleString('en-IN')}/-`;
+      document.getElementById('stat-upi-gpay-count').innerText = `${upiGpayCount} orders`;
+      document.getElementById('stat-razorpay-amount').innerText = `₹${razorpaySum.toLocaleString('en-IN')}/-`;
+      document.getElementById('stat-razorpay-count').innerText = `${razorpayCount} orders`;
+      document.getElementById('stat-cash-amount').innerText = `₹${cashSum.toLocaleString('en-IN')}/-`;
+      document.getElementById('stat-cash-count').innerText = `${cashCount} orders`;
+
+      renderAcquisitionChannels(filtered);
+      renderBranchTrackers(filtered, totalRevenue);
+      renderBranchTables(filtered);
+      renderAccountsAuditTable();
+      renderConsolidatedTable();
+      renderCharts();
+
+      document.getElementById('tracker-date-hint').innerText = activeDateFilter === 'ALL' ? 'Showing All Dates' : `Showing: ${formatDisplayDate(activeDateFilter)}`;
+      document.getElementById('modal-total-records').innerText = salesData.length + ' Records';
+
+      lucide.createIcons();
+    }
+
+    function renderAcquisitionChannels(filtered) {
+      const container = document.getElementById('stat-acquisition-list');
+      if (!container) return;
+
+      const channels = {
+        'Existing customer': { count: 0, label: 'Existing', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+        'Meta ad': { count: 0, label: 'Meta Ads', color: 'bg-blue-50 text-blue-700 border-blue-100' },
+        'Direct enquiry': { count: 0, label: 'Direct', color: 'bg-purple-50 text-purple-700 border-purple-100' },
+        'Website': { count: 0, label: 'Website', color: 'bg-amber-50 text-amber-700 border-amber-100' }
+      };
+
+      filtered.forEach(o => {
+        const s = (o.source || '').toLowerCase();
+        if (s.includes('exist')) channels['Existing customer'].count++;
+        else if (s.includes('meta') || s.includes('lead')) channels['Meta ad'].count++;
+        else if (s.includes('website')) channels['Website'].count++;
+        else channels['Direct enquiry'].count++;
+      });
+
+      container.innerHTML = Object.entries(channels).map(([key, data]) => `
+        <div class="p-2 rounded-xl border ${data.color} flex items-center justify-between">
+          <span class="font-semibold truncate">${data.label}</span>
+          <span class="font-mono font-bold">${data.count}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderBranchTrackers(filtered, totalRevenue) {
+      const grid = document.getElementById('branch-summary-grid');
+      if (!grid) return;
+
+      const branches = [
+        { name: 'BLR (HSR)', color: 'border-l-indigo-600', badge: 'bg-indigo-50 text-indigo-700' },
+        { name: 'BSD', color: 'border-l-amber-500', badge: 'bg-amber-50 text-amber-700' },
+        { name: 'TVM', color: 'border-l-rose-500', badge: 'bg-rose-50 text-rose-700' },
+        { name: 'Kochi', color: 'border-l-emerald-600', badge: 'bg-emerald-50 text-emerald-700' }
+      ];
+
+      grid.innerHTML = branches.map(b => {
+        const items = filtered.filter(i => i.branch === b.name);
+        const sum = items.reduce((acc, c) => acc + c.amount, 0);
+        const share = totalRevenue ? Math.round((sum / totalRevenue) * 100) : 0;
+
+        return `
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs border-l-4 ${b.color} space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">${b.name}</span>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${b.badge}">${items.length} orders</span>
+            </div>
+            <div class="flex items-baseline justify-between">
+              <span class="text-lg font-black text-slate-900 font-mono">₹${sum.toLocaleString('en-IN')}</span>
+              <span class="text-xs font-semibold text-slate-400 font-mono">${share}% share</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderBranchTables(filtered) {
+      const branches = [
+        { key: 'blr-hsr', name: 'BLR (HSR)', badgeId: 'hsr-total-badge' },
+        { key: 'blr-bsd', name: 'BSD', badgeId: 'bsd-total-badge' },
+        { key: 'tvm', name: 'TVM', badgeId: 'tvm-total-badge' },
+        { key: 'kochi', name: 'Kochi', badgeId: 'kochi-total-badge' }
+      ];
+
+      branches.forEach(b => {
+        const tbody = document.getElementById(`branch-table-${b.key}`);
+        const badge = document.getElementById(b.badgeId);
+        if (!tbody) return;
+
+        const items = filtered.filter(i => i.branch === b.name);
+        const sum = items.reduce((acc, c) => acc + c.amount, 0);
+        if (badge) badge.innerText = `₹${sum.toLocaleString('en-IN')}/-`;
+
+        if (items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400 text-xs italic">No orders recorded for this selection.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = items.map((item, idx) => `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${formatDisplayDate(item.date)}</td>
+            <td class="py-2.5 px-3">
+              <div class="font-semibold text-slate-800">${idx + 1}. ${escapeHtml(item.customer)}</div>
+              <div class="text-[11px] text-slate-500">${escapeHtml(item.package)}</div>
+            </td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${getPaymentBadgeClass(item.payment)}">${escapeHtml(item.payment)}</span>
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${item.amount.toLocaleString('en-IN')}</td>
+          </tr>
+        `).join('');
+      });
+    }
+
+    function renderAccountsAuditTable() {
+      const tbody = document.getElementById('accounts-audit-tbody');
+      if (!tbody) return;
+
+      const dates = activeDateFilter === 'ALL' 
+        ? [...new Set(salesData.map(d => d.date))].sort()
+        : [activeDateFilter];
+
+      const branches = ['BLR (HSR)', 'BSD', 'TVM', 'Kochi'];
+      let runningCumulative = 0;
+      let totalUpiGpay = 0;
+      let totalRazorpay = 0;
+      let totalCash = 0;
+      let grandTotalSum = 0;
+      let totalBookings = 0;
+
+      let html = '';
+
+      dates.forEach(date => {
+        branches.forEach(branch => {
+          const items = salesData.filter(i => i.date === date && i.branch === branch);
+          let daySum = 0;
+          let upiGpay = 0;
+          let razorpay = 0;
+          let cash = 0;
+
+          items.forEach(i => {
+            daySum += i.amount;
+            const p = (i.payment || '').toLowerCase();
+            if (p.includes('razorpay')) razorpay += i.amount;
+            else if (p.includes('cash') && !p.includes('upi')) cash += i.amount;
+            else upiGpay += i.amount;
+          });
+
+          runningCumulative += daySum;
+          totalUpiGpay += upiGpay;
+          totalRazorpay += razorpay;
+          totalCash += cash;
+          grandTotalSum += daySum;
+          totalBookings += items.length;
+
+          html += `
+            <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+              <td class="py-2.5 px-3 font-mono font-semibold text-slate-600">${formatDisplayDate(date)}</td>
+              <td class="py-2.5 px-3 font-bold text-slate-800">${branch}</td>
+              <td class="py-2.5 px-3 text-center font-mono ${items.length ? 'font-bold text-slate-900' : 'text-slate-400'}">${items.length}</td>
+              <td class="py-2.5 px-3 text-right font-mono text-indigo-700 font-semibold">${upiGpay > 0 ? '₹' + upiGpay.toLocaleString('en-IN') : '-'}</td>
+              <td class="py-2.5 px-3 text-right font-mono text-blue-700 font-semibold">${razorpay > 0 ? '₹' + razorpay.toLocaleString('en-IN') : '-'}</td>
+              <td class="py-2.5 px-3 text-right font-mono text-emerald-700 font-semibold">${cash > 0 ? '₹' + cash.toLocaleString('en-IN') : '-'}</td>
+              <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${daySum.toLocaleString('en-IN')}</td>
+              <td class="py-2.5 px-3 text-right font-mono font-extrabold text-slate-900 bg-slate-50/50">₹${runningCumulative.toLocaleString('en-IN')}</td>
+            </tr>
+          `;
+        });
+      });
+
+      tbody.innerHTML = html;
+      document.getElementById('accounts-total-orders-cell').innerText = `${totalBookings} Bookings`;
+      document.getElementById('accounts-total-upigpay-cell').innerText = `₹${totalUpiGpay.toLocaleString('en-IN')}/-`;
+      document.getElementById('accounts-total-razorpay-cell').innerText = `₹${totalRazorpay.toLocaleString('en-IN')}/-`;
+      document.getElementById('accounts-total-cash-cell').innerText = `₹${totalCash.toLocaleString('en-IN')}/-`;
+      document.getElementById('accounts-total-sum-cell').innerText = `₹${grandTotalSum.toLocaleString('en-IN')}/-`;
+      document.getElementById('accounts-total-cumulative-cell').innerText = `₹${grandTotalSum.toLocaleString('en-IN')}/-`;
+    }
+
+    function renderConsolidatedTable() {
+      const tbody = document.getElementById('transaction-tbody');
+      if (!tbody) return;
+
+      const q = (document.getElementById('table-search-input')?.value || '').toLowerCase().trim();
+      const filtered = activeDateFilter === 'ALL' ? salesData : salesData.filter(d => d.date === activeDateFilter);
+
+      const items = filtered.filter(item => {
+        if (!q) return true;
+        return (
+          item.customer.toLowerCase().includes(q) ||
+          item.package.toLowerCase().includes(q) ||
+          item.branch.toLowerCase().includes(q) ||
+          item.payment.toLowerCase().includes(q) ||
+          item.source.toLowerCase().includes(q)
+        );
+      });
+
+      document.getElementById('transaction-count-badge').innerText = `${items.length} Orders`;
+
+      if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 text-xs italic">No matching orders found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = items.map(item => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="py-3 px-4 font-mono text-[11px] text-slate-500">${formatDisplayDate(item.date)}</td>
+          <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.branch)}</td>
+          <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(item.customer)}</td>
+          <td class="py-3 px-4 text-slate-600">${escapeHtml(item.package)}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">${escapeHtml(item.source)}</span>
+          </td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${getPaymentBadgeClass(item.payment)}">${escapeHtml(item.payment)}</span>
+          </td>
+          <td class="py-3 px-4 text-right font-mono font-bold text-slate-900">₹${item.amount.toLocaleString('en-IN')}</td>
+          <td class="py-3 px-4 text-center space-x-1">
+            <button onclick="editTransaction('${item.id}')" title="Edit" class="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-indigo-600">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 inline"></i>
+            </button>
+            <button onclick="deleteTransaction('${item.id}')" title="Delete" class="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-600">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function renderCharts() {
+      const ctxDaily = document.getElementById('dailyRevenueChart')?.getContext('2d');
+      if (ctxDaily) {
+        const dates = [...new Set(salesData.map(d => d.date))].sort();
+        const branches = ['BLR (HSR)', 'BSD', 'TVM', 'Kochi'];
+        const colors = {
+          'BLR (HSR)': '#6366f1',
+          'BSD': '#f59e0b',
+          'TVM': '#f43f5e',
+          'Kochi': '#10b981'
+        };
+
+        const datasets = branches.map(b => ({
+          label: b,
+          data: dates.map(d => {
+            return salesData.filter(i => i.date === d && i.branch === b)
+              .reduce((acc, c) => acc + c.amount, 0);
+          }),
+          backgroundColor: colors[b],
+          borderRadius: 4
+        }));
+
+        if (dailyChartInstance) dailyChartInstance.destroy();
+        dailyChartInstance = new Chart(ctxDaily, {
+          type: 'bar',
+          data: {
+            labels: dates.map(formatDisplayDate),
+            datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { stacked: true, grid: { display: false } },
+              y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { callback: v => '₹' + v } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      const ctxChannel = document.getElementById('channelShareChart')?.getContext('2d');
+      if (ctxChannel) {
+        const channelCounts = { 'Existing customer': 0, 'Meta ad': 0, 'Direct enquiry': 0, 'Website': 0 };
+        salesData.forEach(o => {
+          const s = (o.source || '').toLowerCase();
+          if (s.includes('exist')) channelCounts['Existing customer']++;
+          else if (s.includes('meta')) channelCounts['Meta ad']++;
+          else if (s.includes('web')) channelCounts['Website']++;
+          else channelCounts['Direct enquiry']++;
+        });
+
+        if (channelChartInstance) channelChartInstance.destroy();
+        channelChartInstance = new Chart(ctxChannel, {
+          type: 'doughnut',
+          data: {
+            labels: ['Existing', 'Meta Ads', 'Direct', 'Website'],
+            datasets: [{
+              data: Object.values(channelCounts),
+              backgroundColor: ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: { legend: { display: false } }
+          }
+        });
+
+        const leg = document.getElementById('lead-source-legend');
+        if (leg) {
+          leg.innerHTML = `
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span>Existing: ${channelCounts['Existing customer']}</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span><span>Meta Ads: ${channelCounts['Meta ad']}</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span><span>Direct: ${channelCounts['Direct enquiry']}</span></div>
+            <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span>Website: ${channelCounts['Website']}</span></div>
+          `;
+        }
+      }
+    }
+
+    window.openPasteModal = function() {
+      const modal = document.getElementById('pasteModal');
+      if (modal) modal.classList.remove('hidden');
+
+      const allRecordedDates = [...new Set(salesData.map(d => d.date))].sort();
+      const latestKnownDate = allRecordedDates.length > 0 ? allRecordedDates[allRecordedDates.length - 1] : '2026-10-03';
+      const targetDateInput = document.getElementById('paste-target-date');
+      if (targetDateInput) targetDateInput.value = latestKnownDate;
+
+      const textarea = document.getElementById('raw-whatsapp-input');
+      if (textarea) {
+        textarea.value = '';
+        textarea.focus();
+      }
+      liveParseWhatsApp();
+    };
+
+    window.closePasteModal = function() {
+      const modal = document.getElementById('pasteModal');
+      if (modal) modal.classList.add('hidden');
+      const previewBox = document.getElementById('parse-preview-container');
+      if (previewBox) previewBox.classList.add('hidden');
+      tempParsedOrders = [];
+    };
+
+    window.openManualModal = function(editItem = null) {
+      const modal = document.getElementById('manualModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+
+      const title = document.getElementById('manual-modal-title');
+      const editIdInput = document.getElementById('manual-edit-id');
+      const dateInput = document.getElementById('manual-date');
+      const branchInput = document.getElementById('manual-branch');
+      const customerInput = document.getElementById('manual-customer');
+      const pkgInput = document.getElementById('manual-package');
+      const amountInput = document.getElementById('manual-amount');
+      const sourceInput = document.getElementById('manual-source');
+      const paymentInput = document.getElementById('manual-payment');
+
+      if (editItem) {
+        title.innerText = 'Edit Order';
+        editIdInput.value = editItem.id;
+        dateInput.value = editItem.date;
+        branchInput.value = editItem.branch;
+        customerInput.value = editItem.customer;
+        pkgInput.value = editItem.package;
+        amountInput.value = editItem.amount;
+        sourceInput.value = editItem.source;
+        paymentInput.value = editItem.payment;
+      } else {
+        title.innerText = 'Add New Order';
+        editIdInput.value = '';
+        dateInput.value = activeDateFilter !== 'ALL' ? activeDateFilter : '2026-10-03';
+        branchInput.value = 'BLR (HSR)';
+        customerInput.value = '';
+        pkgInput.value = '';
+        amountInput.value = '';
+        sourceInput.value = 'Meta ad';
+        paymentInput.value = 'UPI';
+      }
+    };
+
+    window.closeManualModal = function() {
+      const modal = document.getElementById('manualModal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.liveParseWhatsApp = function() {
+      const textarea = document.getElementById('raw-whatsapp-input');
+      const targetDateInput = document.getElementById('paste-target-date');
+      if (!textarea || !targetDateInput) return;
+
+      const text = textarea.value;
+
+      // Auto-detect date in pasted text
+      const monthMatch = text.match(/(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s*0?(\d{1,2})/i);
+      const bracketMatch = text.match(/(?:\[|\b)0?(\d{1,2})[\/\.-]0?(\d{1,2})(?:[\/\.-](\d{2,4}))?/);
+
+      if (monthMatch) {
+        const d = monthMatch[1].padStart(2, '0');
+        targetDateInput.value = `2026-10-${d}`;
+      } else if (bracketMatch) {
+        const d = bracketMatch[1].padStart(2, '0');
+        const m = bracketMatch[2].padStart(2, '0');
+        targetDateInput.value = `2026-${m}-${d}`;
+      }
+
+      tempParsedOrders = parseWhatsAppSales(text, targetDateInput.value);
+
+      const previewBox = document.getElementById('parse-preview-container');
+      const countEl = document.getElementById('preview-count');
+      const sumEl = document.getElementById('preview-total-sum');
+      const listEl = document.getElementById('preview-list');
+
+      if (!previewBox || !countEl || !sumEl || !listEl) return;
+
+      if (tempParsedOrders.length === 0) {
+        previewBox.classList.add('hidden');
+        return;
+      }
+
+      previewBox.classList.remove('hidden');
+      const totalSum = tempParsedOrders.reduce((acc, c) => acc + c.amount, 0);
+      countEl.innerText = `Detected ${tempParsedOrders.length} order(s) for ${formatDisplayDate(targetDateInput.value)}:`;
+      sumEl.innerText = `₹${totalSum.toLocaleString('en-IN')}/-`;
+
+      listEl.innerHTML = tempParsedOrders.map(o => `
+        <div class="p-2 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-xs">
+          <div>
+            <span class="font-bold text-indigo-700">[${o.branch}]</span>
+            <span class="font-semibold text-slate-800 ml-1">${escapeHtml(o.customer)}</span>
+            <span class="text-slate-500 text-[11px] block sm:inline sm:ml-1">(${escapeHtml(o.package)})</span>
+          </div>
+          <span class="font-bold text-slate-900 font-mono ml-2">₹${o.amount.toLocaleString('en-IN')}</span>
+        </div>
+      `).join('');
+    };
+
+    window.previewParsedData = window.liveParseWhatsApp;
+
+    window.commitParsedData = async function() {
+      const targetDateInput = document.getElementById('paste-target-date');
+      const textarea = document.getElementById('raw-whatsapp-input');
+      const defaultDate = targetDateInput ? targetDateInput.value : '2026-10-03';
+
+      if (tempParsedOrders.length === 0 && textarea) {
+        tempParsedOrders = parseWhatsAppSales(textarea.value, defaultDate);
+      }
+
+      if (tempParsedOrders.length === 0) {
+        showToast('No orders detected. Please paste your daily branch message.', false);
+        return;
+      }
+
+      const ordersToSave = [...tempParsedOrders];
+      const newlyAddedDate = ordersToSave[0].date;
+      closePasteModal();
+
+      salesData.push(...ordersToSave);
+      await saveItemsToIndexedDB(ordersToSave);
+
+      updateDateButtons();
+      filterByDate(newlyAddedDate);
+      showToast(`Added ${ordersToSave.length} orders for ${formatDisplayDate(newlyAddedDate)}!`);
+
+      if (textarea) textarea.value = '';
+      tempParsedOrders = [];
+    };
+
+    window.handleManualSubmit = async function(e) {
+      e.preventDefault();
+      const editId = document.getElementById('manual-edit-id').value;
+      const orderDate = document.getElementById('manual-date').value;
+      const orderItem = {
+        id: editId || ('gw-' + Date.now()),
+        date: orderDate,
+        branch: document.getElementById('manual-branch').value,
+        customer: document.getElementById('manual-customer').value.trim(),
+        package: document.getElementById('manual-package').value.trim(),
+        amount: parseInt(document.getElementById('manual-amount').value, 10),
+        source: document.getElementById('manual-source').value,
+        payment: document.getElementById('manual-payment').value.trim() || 'UPI'
+      };
+
+      if (editId) {
+        const idx = salesData.findIndex(d => d.id === editId);
+        if (idx !== -1) salesData[idx] = orderItem;
+      } else {
+        salesData.push(orderItem);
+      }
+
+      await saveItemsToIndexedDB([orderItem]);
+
+      updateDateButtons();
+      filterByDate(orderDate);
+      closeManualModal();
+      showToast(editId ? 'Order updated.' : 'Order saved.');
+    };
+
+    window.editTransaction = function(id) {
+      const item = salesData.find(d => d.id === id);
+      if (item) openManualModal(item);
+    };
+
+    window.deleteTransaction = async function(id) {
+      salesData = salesData.filter(item => item.id !== id);
+      await deleteItemFromIndexedDB(id);
+
+      updateDateButtons();
+      refreshDashboard();
+      showToast('Order removed.');
+    };
+
+    window.resetToBaseline = async function() {
+      await clearIndexedDB();
+      salesData = [...initialSeedData];
+      await saveItemsToIndexedDB(initialSeedData);
+      updateDateButtons();
+      refreshDashboard();
+      closeCloudModal();
+      showToast('Reset to verified Oct 1-3 baseline.');
+    };
+
+    window.copyDailySummary = function() {
+      const targetDate = activeDateFilter === 'ALL' ? (salesData[salesData.length - 1]?.date || '2026-10-03') : activeDateFilter;
+      const filtered = salesData.filter(d => d.date === targetDate);
+      const total = filtered.reduce((acc, c) => acc + c.amount, 0);
+
+      const hsr = filtered.filter(d => d.branch === 'BLR (HSR)').reduce((a, c) => a + c.amount, 0);
+      const bsd = filtered.filter(d => d.branch === 'BSD').reduce((a, c) => a + c.amount, 0);
+      const tvm = filtered.filter(d => d.branch === 'TVM').reduce((a, c) => a + c.amount, 0);
+      const kochi = filtered.filter(d => d.branch === 'Kochi').reduce((a, c) => a + c.amount, 0);
+
+      let upiGpay = 0, razorpay = 0, cash = 0;
+      filtered.forEach(o => {
+        const p = (o.payment || '').toLowerCase();
+        if (p.includes('razorpay')) razorpay += o.amount;
+        else if (p.includes('cash') && !p.includes('upi')) cash += o.amount;
+        else upiGpay += o.amount;
+      });
+
+      const report = `*Game Wagon - Daily Sales Report*
+*Date:* ${formatDisplayDate(targetDate)}
+------------------------------
+*1. BRANCH SALES*
+• BLR (HSR): ₹${hsr.toLocaleString('en-IN')}/-
+• BSD: ₹${bsd.toLocaleString('en-IN')}/-
+👉 *Bangalore Total (HSR + BSD):* ₹${(hsr + bsd).toLocaleString('en-IN')}/-
+• TVM: ₹${tvm.toLocaleString('en-IN')}/-
+• Kochi: ₹${kochi.toLocaleString('en-IN')}/-
+------------------------------
+*2. PAYMENT MODES*
+• UPI & GPay: ₹${upiGpay.toLocaleString('en-IN')}/-
+• Razorpay: ₹${razorpay.toLocaleString('en-IN')}/-
+• Cash: ₹${cash.toLocaleString('en-IN')}/-
+------------------------------
+*TOTAL DAILY REVENUE:* ₹${total.toLocaleString('en-IN')}/-
+*Total Bookings:* ${filtered.length}`;
+
+      copyToClipboard(report);
+      showToast('Report copied to clipboard!');
+    };
+
+    window.exportDataCSV = function() {
+      const filtered = activeDateFilter === 'ALL' ? salesData : salesData.filter(d => d.date === activeDateFilter);
+      let csv = 'Date,Branch,Customer Name,Package,Payment Mode,Lead Source,Amount (INR)\n';
+      filtered.forEach(o => {
+        csv += `"${o.date}","${o.branch}","${o.customer.replace(/"/g, '""')}","${o.package.replace(/"/g, '""')}","${o.payment}","${o.source}",${o.amount}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gamewagon_sales_${activeDateFilter}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    window.openCloudModal = () => document.getElementById('cloudModal').classList.remove('hidden');
+    window.closeCloudModal = () => document.getElementById('cloudModal').classList.add('hidden');
+
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const toast = document.getElementById('toast-box');
+      const toastMsg = document.getElementById('toast-message');
+      const toastIcon = document.getElementById('toast-icon');
+      if (!toast) return;
+
+      toastMsg.innerText = msg;
+      toastIcon.setAttribute('data-lucide', isSuccess ? 'check-circle' : 'alert-circle');
+      toastIcon.className = isSuccess ? 'w-4 h-4 text-emerald-400' : 'w-4 h-4 text-rose-400';
+      lucide.createIcons();
+
+      toast.classList.remove('opacity-0', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-3');
+      }, 3000);
+    }
+
+    function getPaymentBadgeClass(payment) {
+      const p = (payment || '').toLowerCase();
+      if (p.includes('razorpay')) return 'bg-blue-50 text-blue-700';
+      if (p.includes('cash') && !p.includes('upi')) return 'bg-emerald-50 text-emerald-700';
+      return 'bg-indigo-50 text-indigo-700';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.switchView = switchView;
+    window.filterByDate = filterByDate;
+    window.renderConsolidatedTable = renderConsolidatedTable;
+
+    window.onload = function() {
+      initStorage();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
